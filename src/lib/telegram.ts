@@ -253,15 +253,7 @@ export async function notifyNewOrder(payload: OrderNotificationPayload): Promise
     inline_keyboard: orderStatusButtons(payload.number),
   })
 }
- * 🔍 ПОДБОР — SRC-654321
- * 👤 Мария Сидорова
- * 📱 +7 999 987-65-43
- * 📝 Описание: ...
- * 📊 Кол-во: 50 шт
- * 💰 Бюджет: 4 000 ₽/шт
- *
- * Затем отдельными сообщениями отправляются фото-референсы.
- */
+
 /**
  * Уведомление о новой заявке на подбор.
  *
