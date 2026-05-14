@@ -42,7 +42,7 @@
 
 @layer components {
   .btn-pill {
-    @apply inline-flex items-center justify-center gap-2 rounded-full font-semibold transition-all duration-200 ease;
+    @apply inline-flex items-center justify-center gap-2 rounded-full font-semibold transition-all duration-200 ease-out;
   }
 
   .btn-primary {
