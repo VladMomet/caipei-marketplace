@@ -58,7 +58,6 @@ export function FiltersSidebar({ filters, inDrawer = false, hideCategories = fal
   useEffect(() => {
     setSelectedStyles(urlStylesKey ? urlStylesKey.split(',') : [])
   }, [urlStylesKey])
-  useEffect(() => {
 
   // Локальное состояние для price input'ов (debounce при печати)
   const urlMin = searchParams.get('min_price') ?? ''
