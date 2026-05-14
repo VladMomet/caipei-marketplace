@@ -1,0 +1,64 @@
+name: Setup Database
+
+# Запускается вручную из вкладки Actions на GitHub.
+# Делает: создаёт таблицы, сеит города и категории, импортирует Excel.
+#
+# КАК ЗАПУСТИТЬ:
+# 1. Зайдите на GitHub в свой репозиторий
+# 2. Вкладка Actions сверху
+# 3. Слева выберите "Setup Database"
+# 4. Кнопка "Run workflow" справа → Run workflow
+# 5. Через ~3 минуты увидите зелёную галочку
+#
+# ВАЖНО: Excel-файл должен лежать в data/nap.xlsx в репозитории!
+
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: 'Что выполнить'
+        required: true
+        default: 'full'
+        type: choice
+        options:
+          - full           # схема + сиды + импорт
+          - reimport-only  # только импорт товаров (например, после обновления Excel)
+
+jobs:
+  setup:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund
+
+      - name: Push DB schema
+        if: ${{ inputs.mode == 'full' }}
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: npx drizzle-kit push --force
+
+      - name: Seed cities
+        if: ${{ inputs.mode == 'full' }}
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: npm run seed:cities
+
+      - name: Seed categories
+        if: ${{ inputs.mode == 'full' }}
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: npm run seed:categories
+
+      - name: Import products from Excel
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          PRODUCTS_XLSX_PATH: ./data/nap.xlsx
+        run: npm run import:products
