@@ -4,6 +4,7 @@ import { Ticker } from '@/components/header/ticker'
 import { Header } from '@/components/header/header'
 import { Footer } from '@/components/footer'
 import { CookieBanner } from '@/components/cookie-banner'
+import { YandexMetrica } from '@/components/yandex-metrica'
 import { siteConfig } from '@/lib/site-config'
 import './globals.css'
 
@@ -50,6 +51,7 @@ export default function RootLayout({
           <main className="min-h-[calc(100vh-160px)]">{children}</main>
           <Footer />
           <CookieBanner />
+          <YandexMetrica />
         </Providers>
       </body>
     </html>
