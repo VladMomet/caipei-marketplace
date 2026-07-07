@@ -7,14 +7,20 @@
 
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useCart } from '@/hooks/use-cart'
 import { CartDrawer } from '@/components/cart/cart-drawer'
 
 export function CartButton() {
   const { items } = useCart()
-  const uniqueCount = items.length
   const [open, setOpen] = useState(false)
+  const [mounted, setMounted] = useState(false)
+  useEffect(() => setMounted(true), [])
+
+  // На сервере корзина всегда пустая (нет localStorage). Клиент читает
+  // сохранённые товары в useEffect. Показываем бейдж только после mount,
+  // иначе HTML сервера и клиента разойдутся.
+  const uniqueCount = mounted ? items.length : 0
 
   return (
     <>
