@@ -52,6 +52,12 @@ export const sourcingStatusEnum = pgEnum('sourcing_status', [
   'cancelled',
 ])
 
+/**
+ * Тариф сайта — на каком из 3 сайтов был создан заказ или заявка.
+ * Позволяет менеджерам различать источник, а нам — считать конверсию по тарифу.
+ */
+export const siteTierEnum = pgEnum('site_tier', ['lite', 'standard', 'prestige'])
+
 /* ─────────────────────────────────────────────────────────────────────
    USERS & AUTH
    ─────────────────────────────────────────────────────────────────── */
@@ -226,6 +232,7 @@ export const orders = pgTable(
       .notNull()
       .references(() => cities.id),
     status: orderStatusEnum('status').notNull().default('new'),
+    siteTier: siteTierEnum('site_tier').notNull().default('standard'),
     totalRub: numeric('total_rub', { precision: 14, scale: 2 }).notNull(),
     unitsCount: integer('units_count').notNull(),
     comment: text('comment'),
@@ -280,6 +287,7 @@ export const sourcingRequests = pgTable(
     qty: integer('qty').notNull(),
     budgetRub: numeric('budget_rub', { precision: 12, scale: 2 }),
     status: sourcingStatusEnum('status').notNull().default('new'),
+    siteTier: siteTierEnum('site_tier').notNull().default('standard'),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => ({

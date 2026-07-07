@@ -1,10 +1,10 @@
 import { LEGAL_ENTITY } from '@/lib/constants'
+import { siteConfig } from '@/lib/site-config'
 
 export const metadata = {
-  title: 'Политика обработки персональных данных · CaiPei',
-  description:
-    'Политика конфиденциальности и обработки персональных данных CaiPei в соответствии с 152-ФЗ.',
-  alternates: { canonical: 'https://caipei.ru/legal/privacy' },
+  title: 'Политика обработки персональных данных',
+  description: `Политика конфиденциальности и обработки персональных данных ${siteConfig.name} в соответствии с 152-ФЗ.`,
+  alternates: { canonical: `${siteConfig.origin}/legal/privacy` },
 }
 
 /**

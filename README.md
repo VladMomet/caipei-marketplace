@@ -16,7 +16,7 @@
 - **Telegram Bot API** — уведомления и управление статусами заказов через единый чат менеджеров
 - **TypeScript**, **Zod** валидация на API
 
-**Деплой**: Vercel (frontend + serverless API) + Neon (managed Postgres, Frankfurt).
+**Деплой**: Yandex Cloud VM (Ubuntu 22) + PostgreSQL 16 (локальный).
 Подробности в [`DEPLOY.md`](./DEPLOY.md).
 
 Тонкости:

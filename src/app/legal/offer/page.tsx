@@ -1,10 +1,10 @@
 import { LEGAL_ENTITY } from '@/lib/constants'
+import { siteConfig } from '@/lib/site-config'
 
 export const metadata = {
-  title: 'Публичная оферта · CaiPei',
-  description:
-    'Публичная оферта на оптовую поставку украшений и аксессуаров из Китая через сервис CaiPei.',
-  alternates: { canonical: 'https://caipei.ru/legal/offer' },
+  title: 'Публичная оферта',
+  description: `Публичная оферта на оптовую поставку украшений и аксессуаров из Китая через сервис ${siteConfig.name}.`,
+  alternates: { canonical: `${siteConfig.origin}/legal/offer` },
 }
 
 /**

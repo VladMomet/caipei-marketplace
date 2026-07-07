@@ -1,183 +1,325 @@
-# Деплой CaiPei на Vercel + Neon
+# Деплой CaiPei на Yandex Cloud (3 сайта на одной VM)
 
-## Архитектура продакшена
+Три сайта — CaiPei Lite, CaiPei, CaiPei Prestige — запускаются на одной
+виртуальной машине как 3 отдельных Next.js процесса под PM2, за реверс-прокси
+Nginx. База данных одна на всех, стоит на той же VM. Один Telegram-бот с
+метками сайтов в первой строке каждого уведомления.
 
-- **Фронтенд + serverless API** — Vercel (регион `arn1` Стокгольм, ближе всего к RU-аудитории)
-- **PostgreSQL** — Neon (регион `eu-central-1` Frankfurt)
-- **Хранилище фото товаров** — `cbu*.alicdn.com` через `/api/img-proxy` (Vercel edge cache)
-- **Фото-референсы из заявок на подбор** — прямо в Telegram, без промежуточного S3
-- **Уведомления и управление заказами** — единый Telegram-чат менеджеров
+## Итоговая архитектура
 
-## 152-ФЗ — внимание
+```
+                         ┌──────────────────────────────────┐
+                         │  Yandex Cloud VM (Ubuntu 22)     │
+                         │                                  │
+  caipei-lite.ru  ──┐    │  ┌────────────────────────────┐ │
+   (×1.0)          ├────┼──►  Nginx :80 :443            │ │
+  caipei.ru       ─┤    │  │   (SSL, revproxy by host)  │ │
+   (×1.5)          │    │  └───┬────────┬───────┬───────┘ │
+  caipei-premium.ru┘    │      ▼        ▼       ▼         │
+   (×2.5)               │   :3000    :3001   :3002        │
+                         │  PM2 lite  standard prestige    │
+                         │                                 │
+                         │  ┌──────────────────────────┐  │
+                         │  │ PostgreSQL 16 (local)    │  │
+                         │  │ localhost:5432 / caipei  │  │
+                         │  └──────────────────────────┘  │
+                         └──────────────────────────────────┘
+                                    │
+                                    ▼
+                           Telegram Bot API
+                        (один бот, один чат)
+```
 
-Neon и Vercel хранят данные за пределами РФ (Германия / глобально). Для буквального
-соответствия 152-ФЗ ст. 18 ч. 5 («первичное хранение ПДн на территории РФ») вам нужно
-**до публичного запуска** одно из двух:
+## 152-ФЗ
 
-1. **Мигрировать БД** на российского провайдера (Selectel Managed Postgres, Yandex Cloud, etc.).
-   Код переезжает без изменений — это только смена `DATABASE_URL`.
-2. **Юридически оформить трансграничную передачу** — отдельная форма согласия пользователя
-   при регистрации, уведомление РКН по форме приложения 1 к Приказу № 274.
-   Уточните у юриста.
+Yandex Cloud VM и Managed Postgres находятся в РФ. Это закрывает требование
+ст. 18 ч. 5 152-ФЗ («первичное хранение ПДн на территории РФ»).
 
-Для тестового / закрытого бета-запуска внутри ограниченной группы — текущая конфигурация
-работает, но это не «продакшн для публичного use» в смысле 152-ФЗ. Эту задачу
-закройте до перехода к публичному маркетингу.
+Всё равно нужно:
+1. Зарегистрироваться в РКН как оператор ПДн (через Госуслуги, бесплатно, до 30 дней)
+2. Актуализировать тексты `/legal/privacy`, `/legal/offer`, `/legal/terms` у юриста
+3. Реквизиты в `src/lib/constants.ts → LEGAL_ENTITY` — уже заполнены ИП Оболенского
 
 ---
 
-## Шаг 1. Поднять Neon Postgres
+## Шаг 1 · Создать VM
 
-1. Регистрация: <https://neon.tech>
-2. Create Project → выбрать регион **AWS eu-central-1 (Frankfurt)**.
-3. После создания → в Dashboard скопировать connection string из блока
-   «Connection Details». Формат:
-   ```
-   postgresql://USER:PASS@ep-xxx-xxx.eu-central-1.aws.neon.tech/neondb?sslmode=require
-   ```
-4. Желательно переименовать БД с `neondb` на `caipei` (через Neon UI → Branches).
+1. Открой <https://console.cloud.yandex.ru>
+2. **Compute Cloud → Виртуальные машины → Создать ВМ**
+3. Настройки:
+   - **Имя:** `caipei-vm`
+   - **Зона доступности:** `ru-central1-a` (Москва)
+   - **Образ загрузочного диска:** Ubuntu 22.04
+   - **Тип диска:** SSD, **40 GB**
+   - **Платформа:** Intel Ice Lake
+   - **vCPU:** 2, **гарантированная доля vCPU:** 100%
+   - **RAM:** 4 GB
+   - **Публичный IPv4:** Автоматически
+   - **SSH-ключ:** свой публичный ключ (`cat ~/.ssh/id_rsa.pub`, если нет — генерируй `ssh-keygen`)
+   - **Логин:** `ubuntu`
+4. **Создать ВМ**. Через 30-60 секунд появится публичный IP.
 
-## Шаг 2. Залить проект на GitHub
+**Ориентир по цене:** ~1 800-2 200 ₽/мес.
+
+## Шаг 2 · SSH и первичная настройка
+
+Подключись к VM:
 
 ```bash
-cd caipei-marketplace
-git init
-git add -A
-git commit -m "init: CaiPei MVP"
-git branch -M main
-# создать пустой репо в GitHub, потом:
-git remote add origin git@github.com:your-org/caipei-marketplace.git
-git push -u origin main
+ssh ubuntu@ВНЕШНИЙ-IP
 ```
 
-## Шаг 3. Vercel deploy
-
-1. <https://vercel.com> → Add New → Import Git Repository → выбрать репо.
-2. Framework Preset: **Next.js** (определится автоматически).
-3. **Environment Variables** — добавить все переменные:
-
-   | Имя | Значение |
-   |---|---|
-   | `DATABASE_URL` | connection string из Neon |
-   | `AUTH_SECRET` | `openssl rand -base64 32` |
-   | `AUTH_URL` | `https://caipei.ru` (или ваш vercel.app домен на время) |
-   | `TELEGRAM_BOT_TOKEN` | токен из @BotFather |
-   | `TELEGRAM_MANAGER_CHAT_ID` | id группы менеджеров (с минусом) |
-   | `TELEGRAM_WEBHOOK_SECRET` | `openssl rand -hex 24` |
-
-4. Deploy.
-
-Vercel прицепит проект к коммитам — каждый push в `main` будет автоматически деплоиться.
-
-## Шаг 4. Инициализировать БД (один раз)
-
-С локальной машины, указав `DATABASE_URL` от Neon в `.env.local`:
+Скачай и запусти bootstrap-скрипт (создаст пользователя БД, склонирует репо,
+поставит зависимости, распечатает секреты):
 
 ```bash
-cp .env.example .env.local
-# отредактировать DATABASE_URL и другие
-npm install
-npm run db:push          # создать таблицы из drizzle-схемы
-npm run seed:cities      # 10 городов России
-npm run seed:categories  # 16 категорий украшений
-npm run import:products  # импорт SKU из data/nap.xlsx
+curl -fsSL https://raw.githubusercontent.com/VladMomet/caipei-marketplace/main/deploy/bootstrap-vm.sh | bash
 ```
 
-Или одной командой:
+Скрипт закончит через 5-8 минут. В конце выведет три секрета:
+
+- `DB_PASSWORD` — пароль пользователя `caipei` в PostgreSQL
+- `AUTH_SECRET` — секрет для JWT сессий
+- `TELEGRAM_WEBHOOK_SECRET` — секрет для webhook
+
+**Сохрани все три в надёжное место** (менеджер паролей).
+
+## Шаг 3 · Создать `.env.local` для каждого инстанса
+
+Для каждого из трёх сайтов создай файл `.env.local` в его папке.
+
+**Для `/opt/caipei/caipei-lite/.env.local`:**
 
 ```bash
+nano /opt/caipei/caipei-lite/.env.local
+```
+
+Содержимое:
+
+```env
+DATABASE_URL=postgresql://caipei:ВСТАВЬ-DB_PASSWORD@localhost:5432/caipei
+AUTH_SECRET=ВСТАВЬ-AUTH_SECRET
+AUTH_URL=https://caipei-lite.ru
+SITE_TIER=lite
+NEXT_PUBLIC_SITE_TIER=lite
+TELEGRAM_BOT_TOKEN=ВСТАВЬ-ТОКЕН
+TELEGRAM_MANAGER_CHAT_ID=-1003948541365
+TELEGRAM_WEBHOOK_SECRET=ВСТАВЬ-TG_WEBHOOK_SECRET
+NODE_ENV=production
+```
+
+Cохранить в nano: `Ctrl+O`, `Enter`, `Ctrl+X`.
+
+**Для `/opt/caipei/caipei-standard/.env.local`:** то же самое, но:
+- `AUTH_URL=https://caipei.ru`
+- `SITE_TIER=standard`
+- `NEXT_PUBLIC_SITE_TIER=standard`
+
+**Для `/opt/caipei/caipei-prestige/.env.local`:**
+- `AUTH_URL=https://caipei-premium.ru`
+- `SITE_TIER=prestige`
+- `NEXT_PUBLIC_SITE_TIER=prestige`
+
+Все остальные поля одинаковые.
+
+## Шаг 4 · Применить миграции БД
+
+Один раз с любого из инстансов:
+
+```bash
+cd /opt/caipei/caipei-standard
 npm run setup
 ```
 
-Проверить, что данные в Neon:
+Эта команда сделает три вещи:
+- `db:push` — создаст все таблицы
+- `seed:cities` — засеет 10 городов
+- `seed:categories` — засеет 16 категорий
+- `import:products` — импортирует ~80 SKU из `data/nap.xlsx`
+
+Также применить миграцию 0001 (добавление колонки `site_tier`):
 
 ```bash
-npm run db:studio
+sudo -u postgres psql -d caipei -f /opt/caipei/caipei-standard/drizzle/0001_site_tier.sql
 ```
 
-## Шаг 5. Зарегистрировать Telegram webhook
+## Шаг 5 · Собрать 3 инстанса
 
-После того как Vercel дал вам URL продакшена (`https://caipei.vercel.app` или ваш
-собственный домен), один раз:
+Каждый инстанс собирается со своими env-переменными в клиентском бандле:
 
 ```bash
-curl -F "url=https://caipei.vercel.app/api/telegram/webhook" \
-     -F "secret_token=$TELEGRAM_WEBHOOK_SECRET" \
-     "https://api.telegram.org/bot$TELEGRAM_BOT_TOKEN/setWebhook"
+for tier in lite standard prestige; do
+  cd /opt/caipei/caipei-$tier
+  npm run build
+done
+```
+
+Сборка каждого — 2-3 минуты. Итого ~10 минут.
+
+## Шаг 6 · Запустить PM2
+
+```bash
+cd /opt/caipei/caipei-standard
+pm2 start ecosystem.config.js
+pm2 save
+pm2 startup   # покажет команду для автостарта — скопируй и выполни
+```
+
+Проверка:
+
+```bash
+pm2 list       # должно быть 3 online процесса
+pm2 logs       # смотрим логи всех
+```
+
+Проверить локально что все три отвечают:
+
+```bash
+curl http://localhost:3000  # lite
+curl http://localhost:3001  # standard
+curl http://localhost:3002  # prestige
+```
+
+Должен вернуться HTML с соответствующим заголовком CaiPei Lite / CaiPei / CaiPei Prestige.
+
+## Шаг 7 · Настроить Nginx
+
+```bash
+sudo cp /opt/caipei/caipei-standard/deploy/nginx-caipei.conf /etc/nginx/sites-available/caipei
+sudo ln -s /etc/nginx/sites-available/caipei /etc/nginx/sites-enabled/
+sudo rm /etc/nginx/sites-enabled/default
+sudo nginx -t
+sudo systemctl reload nginx
+```
+
+## Шаг 8 · Настроить DNS
+
+Для каждого из 3 доменов у регистратора добавь A-запись:
+
+| Домен | Тип | Значение |
+|---|---|---|
+| `caipei-lite.ru` | A | Внешний IP VM |
+| `www.caipei-lite.ru` | A | Внешний IP VM |
+| `caipei.ru` | A | Внешний IP VM |
+| `www.caipei.ru` | A | Внешний IP VM |
+| `caipei-premium.ru` | A | Внешний IP VM |
+| `www.caipei-premium.ru` | A | Внешний IP VM |
+
+Обновление DNS может занять 15 минут - 24 часа. Проверить готовность:
+
+```bash
+dig caipei.ru +short           # должен вернуть твой IP
+dig caipei-lite.ru +short
+dig caipei-premium.ru +short
+```
+
+## Шаг 9 · Получить SSL-сертификаты
+
+Только после того, как DNS раздался на все домены:
+
+```bash
+sudo certbot --nginx -d caipei-lite.ru -d www.caipei-lite.ru
+sudo certbot --nginx -d caipei.ru -d www.caipei.ru
+sudo certbot --nginx -d caipei-premium.ru -d www.caipei-premium.ru
+```
+
+Certbot спросит email (для уведомлений об истечении), согласиться с условиями,
+и **выбрать редирект HTTP → HTTPS: option 2 (Redirect)** для каждого.
+
+После этого certbot автоматически:
+- получит сертификаты Let's Encrypt
+- допишет `listen 443 ssl; ssl_certificate ...` в `/etc/nginx/sites-enabled/caipei`
+- сделает `nginx -t && systemctl reload nginx`
+- добавит cron-задачу авто-обновления сертификатов каждые 90 дней
+
+Проверка:
+
+```bash
+curl -I https://caipei.ru
+# HTTP/2 200
+```
+
+## Шаг 10 · Зарегистрировать Telegram webhook
+
+Только для основного сайта (caipei.ru), два других webhook не нужен —
+уведомления они шлют исходящими запросами:
+
+```bash
+curl -F "url=https://caipei.ru/api/telegram/webhook" \
+     -F "secret_token=ТВОЙ-TELEGRAM_WEBHOOK_SECRET" \
+     "https://api.telegram.org/botТВОЙ-BOT_TOKEN/setWebhook"
 ```
 
 Проверить:
 
 ```bash
-curl "https://api.telegram.org/bot$TELEGRAM_BOT_TOKEN/getWebhookInfo"
+curl "https://api.telegram.org/botТВОЙ-BOT_TOKEN/getWebhookInfo"
 ```
 
-Должно быть: `"url":"https://.../api/telegram/webhook"`, `"pending_update_count":0`.
+Должно быть: `"url":"https://caipei.ru/api/telegram/webhook"`, `"pending_update_count":0`.
 
-## Шаг 6. Подключить домен
-
-В Vercel → Settings → Domains → добавить `caipei.ru`. Vercel покажет нужные DNS-записи
-(обычно один A на `76.76.21.21` или CNAME на `cname.vercel-dns.com`). Прописать в
-DNS-зоне регистратора. SSL Let's Encrypt подключится автоматически.
-
-После смены домена **перерегистрировать webhook** с новым URL.
+Как работает: нажатие менеджером кнопки статуса в чате → Telegram шлёт callback
+на `caipei.ru/api/telegram/webhook` → обновление статуса в БД происходит **общей**,
+и все 3 сайта сразу видят новый статус (потому что БД одна).
 
 ---
 
-## Подготовка к 152-ФЗ (до публичного запуска)
+## Обновление кода после первого деплоя
 
-1. **Зарегистрироваться в Роскомнадзоре как оператор ПДн.**
-   Заявление подаётся бесплатно через Госуслуги.
-   Срок рассмотрения — до 30 дней.
-   Без регистрации обработка ПДн на сайте — нарушение.
-
-2. **Назначить ответственного за обработку ПДн** приказом
-   (это может быть сам владелец ИП/ООО).
-
-3. **Утвердить локальные акты**: положение об обработке ПДн,
-   список лиц с доступом к ПДн, журнал учёта обращений субъектов ПДн.
-
-4. **Подменить плейсхолдеры** в `src/lib/constants.ts → LEGAL_ENTITY`
-   на реальные реквизиты вашего юр.лица.
-
-5. **Проверить тексты** в `src/app/legal/{privacy,offer,terms}/page.tsx`
-   с юристом.
-
-6. **Решить вопрос с расположением БД** (см. блок «152-ФЗ — внимание»
-   в начале документа).
-
----
-
-## После деплоя — что проверить
-
-- [ ] Открывается главная, видны товары и категории
-- [ ] Каталог фильтруется по категориям и материалу
-- [ ] Карточка товара показывает оба тарифа цены (от 10 / от 2000)
-- [ ] Добавление в корзину работает с правильным шагом (±10)
-- [ ] Регистрация физлица проходит, в БД появляются записи в `users` + `consents`
-- [ ] Регистрация юрлица сохраняет данные в `companies`
-- [ ] Оформление заказа → менеджер получает 🟢 уведомление в Telegram-чате
-- [ ] Нажатие кнопки «В работу» → статус в БД меняется + сообщение редактируется
-- [ ] Форма подбора → менеджер получает 🟡 уведомление + фото-референсы
-- [ ] Личный кабинет показывает заказы и заявки, статус обновляется
-- [ ] Сайт открывается по `https://caipei.ru` (HTTPS включён)
-- [ ] `getWebhookInfo` возвращает 0 pending updates
-- [ ] **Тестовый Telegram-токен заменён** на боевой через @BotFather
-
----
-
-## Полезные команды
+Когда я или ты правишь код и пушу в GitHub — на VM обновление вручную:
 
 ```bash
-# Локальный prod-build для проверки
-npm run build && npm run start
+for tier in lite standard prestige; do
+  cd /opt/caipei/caipei-$tier
+  git pull
+  npm ci
+  npm run build
+done
 
-# Drizzle Studio с прод-БД (осторожно — это прод-данные)
-DATABASE_URL=$PROD_DB_URL npm run db:studio
-
-# Переимпортировать каталог после обновления nap.xlsx
-npm run import:products
-
-# Удалить webhook (отключить кнопки в TG)
-curl "https://api.telegram.org/bot$TELEGRAM_BOT_TOKEN/deleteWebhook"
+pm2 restart all
 ```
+
+Или скрипт `deploy/update.sh` (создам отдельно, если попросишь).
+
+---
+
+## Мониторинг
+
+```bash
+pm2 monit           # реалтайм CPU/RAM по процессам
+pm2 logs            # логи всех 3 инстансов
+pm2 logs caipei-standard --lines 100   # только один
+sudo systemctl status nginx
+sudo systemctl status postgresql
+sudo journalctl -u nginx -n 50         # логи nginx
+```
+
+Логи PM2 живут в `~/.pm2/logs/`, ротируются автоматически.
+
+## Бэкапы
+
+Для БД (раз в сутки cron):
+
+```bash
+sudo -u postgres pg_dump caipei | gzip > /var/backups/caipei-$(date +%F).sql.gz
+```
+
+Настроить в `sudo crontab -e`:
+
+```
+0 3 * * * sudo -u postgres pg_dump caipei | gzip > /var/backups/caipei-$(date +\%F).sql.gz
+```
+
+---
+
+## После деплоя — чек-лист
+
+- [ ] Все 3 домена открываются с зелёным замком (HTTPS)
+- [ ] На каждом сайте видны свои цены (можно взять один товар и сверить: если базовая цена 1000 ₽, то на lite ≈ 1000, standard ≈ 1500, prestige ≈ 2500)
+- [ ] В header написано «CaiPei» на standard, «CaiPei Lite» и «CaiPei Prestige» на других
+- [ ] Регистрация физлица проходит на каждом сайте отдельно (куки не пересекаются)
+- [ ] Тестовый заказ на CaiPei Prestige приходит в Telegram с меткой 🔴 [PRESTIGE] · CaiPei Prestige · caipei-premium.ru
+- [ ] Нажатие кнопки «В работу» в Telegram обновляет статус в кабинете пользователя
+- [ ] Форма подбора отправляется, приходит уведомление 🟡 с меткой сайта
+- [ ] `getWebhookInfo` показывает 0 pending updates
+- [ ] **Тестовый Telegram-токен заменён** на боевой через @BotFather (`/revoke`)

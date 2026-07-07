@@ -7,11 +7,11 @@
 
 import type { Metadata } from 'next'
 import Link from 'next/link'
+import { siteConfig } from '@/lib/site-config'
 
 export const metadata: Metadata = {
-  title: 'Доставка и ВЭД · CaiPei',
-  description:
-    'Как работает CaiPei: цены сразу с доставкой, документы для бухгалтерии, ВЭД в белую. Сроки, маршруты, состав цены — без серых схем.',
+  title: 'Доставка и ВЭД',
+  description: `Как работает ${siteConfig.name}: цены сразу с доставкой, документы для бухгалтерии, ВЭД в белую. Сроки, маршруты, состав цены — без серых схем.`,
 }
 
 export default function AboutPage() {

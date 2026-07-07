@@ -181,7 +181,7 @@ export function SegmentControl<T extends string>({
             aria-selected={active}
             onClick={() => onChange(opt.value)}
             className={cn(
-              'rounded-full px-4 py-2.5 text-sm font-semibold transition-all duration-200 ease',
+              'rounded-full px-4 py-2.5 text-sm font-semibold transition-all duration-200 ease-out',
               active
                 ? 'bg-ink text-paper shadow-soft'
                 : 'bg-transparent text-ink-2 hover:text-ink'

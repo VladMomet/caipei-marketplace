@@ -1,10 +1,10 @@
 import { LEGAL_ENTITY } from '@/lib/constants'
+import { siteConfig } from '@/lib/site-config'
 
 export const metadata = {
-  title: 'Пользовательское соглашение · CaiPei',
-  description:
-    'Правила использования сайта CaiPei: регистрация, контент, ответственность.',
-  alternates: { canonical: 'https://caipei.ru/legal/terms' },
+  title: 'Пользовательское соглашение',
+  description: `Правила использования сайта ${siteConfig.name}: регистрация, контент, ответственность.`,
+  alternates: { canonical: `${siteConfig.origin}/legal/terms` },
 }
 
 /**

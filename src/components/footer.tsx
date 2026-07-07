@@ -7,6 +7,7 @@
 
 import Link from 'next/link'
 import { LEGAL_ENTITY } from '@/lib/constants'
+import { siteConfig } from '@/lib/site-config'
 
 const SERVICE_LINKS = [
   { href: '/catalog', label: 'Каталог' },
@@ -103,7 +104,7 @@ export function Footer() {
 
         <div className="mt-14 grid gap-4 border-t border-paper/15 pt-8 text-paper/40 md:grid-cols-2 md:items-start md:gap-8">
           <div className="space-y-1.5 font-mono text-[10.5px] uppercase tracking-wider leading-relaxed">
-            <p>© 2026 CaiPei · {LEGAL_ENTITY.fullName}</p>
+            <p>© 2026 {siteConfig.name} · {LEGAL_ENTITY.fullName}</p>
             <p>
               ИНН {LEGAL_ENTITY.inn} · ОГРНИП {LEGAL_ENTITY.ogrn}
             </p>

@@ -20,13 +20,13 @@ interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
 
 const variantClasses: Record<Variant, string> = {
   primary:
-    'bg-ink text-paper hover:bg-cinnabar transition-colors duration-200 ease',
+    'bg-ink text-paper hover:bg-cinnabar transition-colors duration-200 ease-out',
   secondary:
-    'border border-ink-2 bg-transparent text-ink hover:bg-ink hover:text-paper transition-colors duration-200 ease',
+    'border border-ink-2 bg-transparent text-ink hover:bg-ink hover:text-paper transition-colors duration-200 ease-out',
   ghost:
-    'bg-transparent text-ink hover:bg-paper-2 transition-colors duration-200 ease',
+    'bg-transparent text-ink hover:bg-paper-2 transition-colors duration-200 ease-out',
   cinnabar:
-    'bg-cinnabar text-surface-hi hover:bg-cinnabar-2 transition-colors duration-200 ease',
+    'bg-cinnabar text-surface-hi hover:bg-cinnabar-2 transition-colors duration-200 ease-out',
 }
 
 const sizeClasses: Record<Size, string> = {

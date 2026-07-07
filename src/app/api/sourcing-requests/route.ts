@@ -21,6 +21,7 @@ import { sourcingRequests, users, companies, cities } from '@/db/schema'
 import { createSourcingSchema } from '@/lib/validation'
 import { generateSourcingNumber } from '@/lib/utils'
 import { notifyNewSourcing } from '@/lib/telegram'
+import { siteConfig } from '@/lib/site-config'
 import {
   SOURCING_PHOTO_MAX_SIZE_BYTES,
   SOURCING_PHOTOS_MAX_COUNT,
@@ -127,6 +128,7 @@ export async function POST(req: Request) {
           ? String(input.budget_rub)
           : null,
       status: 'new',
+      siteTier: siteConfig.tier,
     })
     .returning()
 

@@ -61,7 +61,6 @@ const config: Config = {
         seal: '0 6px 18px rgba(179,58,45,0.25)',
       },
       transitionTimingFunction: {
-        ease: 'cubic-bezier(0.22, 0.61, 0.36, 1)',
         spring: 'cubic-bezier(0.34, 1.56, 0.64, 1)',
       },
       animation: {

@@ -68,11 +68,3 @@ export const LEGAL_ENTITY = {
   email: 'hello@caipei.ru',
   phone: '+7 (495) 000-00-00',
 } as const
-
-/** Брендинг для UI-текстов */
-export const BRAND = {
-  name: 'CaiPei',
-  cn: '采配',
-  domain: 'caipei.ru',
-  tagline: 'Украшения и аксессуары из Китая',
-} as const

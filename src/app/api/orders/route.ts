@@ -17,6 +17,7 @@ import { generateOrderNumber } from '@/lib/utils'
 import { notifyNewOrder } from '@/lib/telegram'
 import { calculateCartTotal } from '@/lib/pricing'
 import { getCityMultiplier } from '@/lib/city-pricing'
+import { siteConfig } from '@/lib/site-config'
 
 export async function POST(req: Request) {
   const session = await auth()
@@ -135,6 +136,7 @@ export async function POST(req: Request) {
         userId: session.user.id,
         deliveryCityId: city.id,
         status: 'new',
+        siteTier: siteConfig.tier,
         totalRub: String(totalRub),
         unitsCount,
         comment: input.comment ?? null,

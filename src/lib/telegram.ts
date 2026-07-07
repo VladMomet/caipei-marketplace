@@ -9,6 +9,7 @@
  */
 
 import { formatRub, pluralize } from './utils'
+import { siteConfig } from './site-config'
 
 const TG_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN
 const TG_CHAT_ID = process.env.TELEGRAM_MANAGER_CHAT_ID
@@ -207,6 +208,9 @@ async function sendPhotoBuffer(
  */
 export async function notifyNewOrder(payload: OrderNotificationPayload): Promise<void> {
   const lines: string[] = []
+  // Метка сайта — первой строкой, чтобы менеджер сразу понимал источник
+  lines.push(`${siteConfig.telegramLabel} · ${siteConfig.name} · ${siteConfig.host}`)
+  lines.push('')
   // Шапка-разделитель: зелёная полоса = заказ (деньги в кассе)
   lines.push('🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢')
   lines.push(`💰 НОВЫЙ ЗАКАЗ — ${payload.number}`)
@@ -265,6 +269,9 @@ export async function notifyNewOrder(payload: OrderNotificationPayload): Promise
  */
 export async function notifyNewSourcing(payload: SourcingNotificationPayload): Promise<void> {
   const lines: string[] = []
+  // Метка сайта — первой строкой
+  lines.push(`${siteConfig.telegramLabel} · ${siteConfig.name} · ${siteConfig.host}`)
+  lines.push('')
   // Шапка-разделитель: жёлтая полоса = подбор (нужна работа сотрудника в Иу)
   lines.push('🟡🟡🟡🟡🟡🟡🟡🟡🟡🟡')
   lines.push(`🔍 ЗАЯВКА НА ПОДБОР — ${payload.number}`)

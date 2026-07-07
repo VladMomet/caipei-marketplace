@@ -14,6 +14,7 @@ import { CartButton } from './cart-button'
 import { AccountButton } from './account-button'
 import { MobileMenu } from './mobile-menu'
 import { cn } from '@/lib/utils'
+import { getClientSiteConfig } from '@/lib/site-config'
 
 const NAV = [
   { href: '/catalog', label: 'Каталог' },
@@ -23,6 +24,7 @@ const NAV = [
 
 export function Header() {
   const pathname = usePathname()
+  const site = getClientSiteConfig()
 
   return (
     <header className="sticky top-0 z-30 border-b border-hair bg-paper/85 backdrop-blur-md">
@@ -31,11 +33,16 @@ export function Header() {
         <div className="flex items-center gap-2 md:gap-10">
           <MobileMenu />
 
-          <Link href="/" className="flex items-center gap-2" aria-label="CaiPei — главная">
+          <Link href="/" className="flex items-center gap-2" aria-label={`${site.name} — главная`}>
             <span className="chinese-seal h-7 w-7 text-base">采</span>
             <span className="font-display text-xl font-medium leading-none tracking-tight">
               CaiPei
             </span>
+            {site.tier !== 'standard' && (
+              <span className="font-display text-sm font-medium leading-none tracking-tight text-cinnabar">
+                {site.shortName}
+              </span>
+            )}
             <span className="hidden font-accent text-sm italic text-mute sm:inline">采配</span>
           </Link>
 

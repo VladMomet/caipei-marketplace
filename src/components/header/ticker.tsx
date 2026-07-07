@@ -7,6 +7,7 @@
 
 import { useEffect, useState } from 'react'
 import { CNY_TO_RUB } from '@/lib/constants'
+import { getClientSiteConfig } from '@/lib/site-config'
 
 const ITEMS = [
   `CNY/RUB · 1 ¥ = ${CNY_TO_RUB} ₽ · обновлено сегодня`,
@@ -17,6 +18,7 @@ const ITEMS = [
 ]
 
 export function Ticker() {
+  const site = getClientSiteConfig()
   // Чередуем сообщения каждые 6 сек
   const [idx, setIdx] = useState(0)
 
@@ -29,7 +31,7 @@ export function Ticker() {
     <div className="bg-ink text-paper">
       <div className="container mx-auto flex h-9 max-w-[1480px] items-center justify-between px-6 lg:px-8">
         <div className="font-mono text-[10.5px] uppercase tracking-[0.14em] text-paper/70">
-          CaiPei · B2B · Опт · Китай → Россия
+          {site.name} · B2B · Опт · Китай → Россия
         </div>
         <div
           key={idx}
