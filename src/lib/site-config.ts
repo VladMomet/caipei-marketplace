@@ -34,6 +34,8 @@ export interface SiteConfig {
   accentColor: string
   /** Slug — используется в куке, кэше, событиях */
   slug: string
+  /** Номер счётчика Яндекс.Метрики (null если не подключён) */
+  metrikaId: number | null
 }
 
 const CONFIGS: Record<SiteTier, SiteConfig> = {
@@ -47,6 +49,7 @@ const CONFIGS: Record<SiteTier, SiteConfig> = {
     telegramLabel: '🟢 [LITE]',
     accentColor: '#7F9C6E', // sage
     slug: 'lite',
+    metrikaId: 110469161,
   },
   standard: {
     tier: 'standard',
@@ -58,6 +61,7 @@ const CONFIGS: Record<SiteTier, SiteConfig> = {
     telegramLabel: '🟡 [STANDARD]',
     accentColor: '#B33A2D', // cinnabar (original)
     slug: 'standard',
+    metrikaId: 110469098,
   },
   prestige: {
     tier: 'prestige',
@@ -69,6 +73,7 @@ const CONFIGS: Record<SiteTier, SiteConfig> = {
     telegramLabel: '🔴 [PRESTIGE]',
     accentColor: '#8B6F47', // gold-brown
     slug: 'prestige',
+    metrikaId: 110469209,
   },
 }
 
